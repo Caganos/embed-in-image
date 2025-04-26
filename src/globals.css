@@ -1,1 +1,12 @@
+@import url("https://fonts.googleapis.com/css2?family=Russo+One&family=Teko:wght@400;600&family=PT+Mono&display=swap");
 @import "tailwindcss";
+
+.font-display {
+  font-family: "Russo One", sans-serif;
+}
+.font-ui {
+  font-family: "Teko", sans-serif;
+}
+.font-mono {
+  font-family: "PT Mono", monospace;
+}

@@ -7,11 +7,8 @@ export default function App() {
   const [mode, setMode] = useState("embed");
   const [msg, setMsg] = useState("");
   const [outMsg, setOutMsg] = useState("");
-
   const [files, setFiles] = useState({ embed: null, extract: null });
-
   const [previews, setPreviews] = useState({ embed: null, extract: null });
-
   const canvasRef = useRef();
 
   const onDrop = useCallback(
@@ -66,8 +63,7 @@ export default function App() {
 
   const handleEmbed = async () => {
     const file = files.embed;
-    if (!file) return alert("Upload an image first");
-
+    if (!file) return alert("Please upload an image first");
     await drawImage(file);
     const ctx = canvasRef.current.getContext("2d");
     const imgData = ctx.getImageData(
@@ -76,16 +72,16 @@ export default function App() {
       canvasRef.current.width,
       canvasRef.current.height
     );
-
     try {
       const stego = embedMessage(imgData, msg);
       ctx.putImageData(stego, 0, 0);
-
       const base = file.name.replace(/\.[^/.]+$/, "");
       const link = document.createElement("a");
       link.download = `${base}_embed.png`;
       link.href = canvasRef.current.toDataURL("image/png");
       link.click();
+      setFiles((p) => ({ ...p, embed: null }));
+      setMsg("");
     } catch (e) {
       alert(e.message);
     }
@@ -93,8 +89,7 @@ export default function App() {
 
   const handleExtract = async () => {
     const file = files.extract;
-    if (!file) return alert("Upload an image first");
-
+    if (!file) return alert("Please upload an image first");
     await drawImage(file);
     const ctx = canvasRef.current.getContext("2d");
     const imgData = ctx.getImageData(
@@ -104,18 +99,21 @@ export default function App() {
       canvasRef.current.height
     );
     const text = extractMessage(imgData);
-    setOutMsg(text || "[no hidden text]");
+    const isPrintable = /^[\x20-\x7E]+$/.test(text);
+    setOutMsg(isPrintable ? text : "No secret code detected");
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-600 to-blue-500 p-8 flex flex-col items-center">
+    <div className="px-5 py-5 sm:px-10 min-h-screen justify-center bg-gradient-to-br from-red-900 to-black flex flex-col items-center text-white font-mono">
       <motion.h1
-        className="text-4xl font-extrabold text-white mb-6"
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
+        className="text-5xl font-extrabold font-display mb-8 flex items-center space-x-2"
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.7 }}
       >
-        {mode === "embed" ? "🔐 Embed Secret Photo" : "🔍 Extract Secret Photo"}
+        <span>☭</span>
+        <span>{mode === "embed" ? "Embed" : "Extract"}</span>
+        <span>☭</span>
       </motion.h1>
 
       <div className="flex space-x-4 mb-6">
@@ -126,51 +124,46 @@ export default function App() {
               setMode(m);
               setOutMsg("");
             }}
-            className={`px-4 py-2 rounded-full font-semibold transition-colors 
-              ${
-                mode === m
-                  ? "bg-white text-purple-700"
-                  : "bg-white/30 text-white/80"
-              }`}
+            className={`px-6 py-2 rounded-lg font-bold font-ui text-lg transition-colors ${
+              mode === m
+                ? "bg-red-700 border-2 border-red-600"
+                : "bg-black/70 border border-red-800 text-red-500"
+            }`}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
-            {m.charAt(0).toUpperCase() + m.slice(1)}
+            {m === "embed" ? "Embed" : "Extract"}
           </motion.button>
         ))}
       </div>
 
       <motion.div
         {...getRootProps()}
-        className={`w-full max-w-md p-4 border-4 border-dashed rounded-xl cursor-pointer text-center mb-6
-          ${isDragActive ? "border-white bg-white/20" : "border-white/50"}`}
+        className={`w-full max-w-2xl p-6 border-4 border-dashed rounded-lg mb-6 cursor-pointer ${
+          isDragActive ? "border-red-600 bg-black/40" : "border-red-800"
+        }`}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.3 }}
       >
         <input {...getInputProps()} />
         {previews[mode] ? (
-          <>
-            <img
-              src={previews[mode]}
-              alt="preview"
-              className="mx-auto mb-2 max-h-48 object-contain rounded"
-            />
-            <p className="text-white">
-              <strong>{files[mode].name}</strong>
-            </p>
-          </>
+          <img
+            src={previews[mode]}
+            alt="preview"
+            className="mx-auto mb-4 max-h-64 rounded border-2 border-red-600"
+          />
         ) : (
-          <p className="text-white/80">
-            Drag & drop an image here, or click to select
+          <p className="text-red-500">
+            Drag & drop image here or click to select
           </p>
         )}
+        {files[mode] && <p className="mt-2 text-red-400">{files[mode].name}</p>}
       </motion.div>
 
-      {/* Embed UI */}
       {mode === "embed" && (
         <motion.div
-          className="w-full max-w-md space-y-4"
+          className="w-full max-w-2xl space-y-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
@@ -178,32 +171,29 @@ export default function App() {
           <textarea
             value={msg}
             onChange={(e) => setMsg(e.target.value)}
-            placeholder="Type your secret message..."
-            className="w-full p-3 rounded-lg resize-none outline-none ring-2 ring-white/50"
-            rows={4}
+            placeholder="Enter Secret Code"
+            className="w-full p-4 bg-black/70 font-mono rounded-lg border-2 border-red-800 focus:outline-none"
+            rows={5}
           />
-
           <motion.button
             onClick={handleEmbed}
             disabled={!files.embed || !msg.trim()}
-            className={`w-full py-3 rounded-full bg-white text-purple-700 font-bold transition-opacity
-              ${
-                !files.embed || !msg.trim()
-                  ? "opacity-50 cursor-not-allowed"
-                  : "hover:opacity-90"
-              }`}
+            className={`w-full py-3 rounded-lg font-bold transition-opacity ${
+              !files.embed || !msg.trim()
+                ? "bg-red-800 opacity-50 cursor-not-allowed"
+                : "bg-red-700 hover:bg-red-600"
+            }`}
             whileHover={!files.embed || !msg.trim() ? {} : { scale: 1.02 }}
             whileTap={!files.embed || !msg.trim() ? {} : { scale: 0.98 }}
           >
-            Embed &amp; Download
+            Embed & Download
           </motion.button>
         </motion.div>
       )}
 
-      {/* Extract UI */}
       {mode === "extract" && (
         <motion.div
-          className="w-full max-w-md space-y-4"
+          className="w-full max-w-2xl space-y-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
@@ -211,26 +201,24 @@ export default function App() {
           <motion.button
             onClick={handleExtract}
             disabled={!files.extract}
-            className={`w-full py-3 rounded-full bg-white text-purple-700 font-bold transition-opacity
-              ${
-                !files.extract
-                  ? "opacity-50 cursor-not-allowed"
-                  : "hover:opacity-90"
-              }`}
+            className={`w-full py-3 rounded-lg font-bold transition-opacity ${
+              !files.extract
+                ? "bg-red-800 opacity-50 cursor-not-allowed"
+                : "bg-red-700 hover:bg-red-600"
+            }`}
             whileHover={!files.extract ? {} : { scale: 1.02 }}
             whileTap={!files.extract ? {} : { scale: 0.98 }}
           >
             Extract Message
           </motion.button>
-
           {outMsg && (
             <motion.div
-              className="p-4 bg-white/80 rounded-lg"
+              className="p-4 bg-black/70 rounded-lg border border-red-600"
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.7 }}
             >
-              <p className="font-semibold">Hidden Text:</p>
+              <p className="font-semibold">Secret Code:</p>
               <p className="mt-2 break-words">{outMsg}</p>
             </motion.div>
           )}
